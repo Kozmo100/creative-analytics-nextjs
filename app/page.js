@@ -9,8 +9,7 @@ import CreativeScore from './components/CreativeScore';
 import { processCreativeData } from './lib/calculations';
 import { BarChart, TrendingUp, DollarSign, Award } from 'lucide-react';
 // Import Papaparse dynamically since we're in browser
-import dynamic from 'next/dynamic';
-const Papa = dynamic(() => import('papaparse'), { ssr: false });
+import Papa from 'papaparse';
 export default function Home() {
 const [data, setData] = useState(null);
 const [loading, setLoading] = useState(false);
