@@ -280,7 +280,6 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {/* KPI Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
                 <div className="flex items-center justify-between mb-2">
@@ -288,7 +287,7 @@ export default function Home() {
                   <DollarSign className="h-5 w-5 text-green-500" />
                 </div>
                 <p className="text-3xl font-bold">{getAverageMetric('ROAS')}x</p>
-                <p className="text-xs text-green-600 mt-1">Target: >3.0x</p>
+                <p className="text-xs text-green-600 mt-1">Target: above 3.0x</p>
               </div>
               
               <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
@@ -319,7 +318,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Tabs */}
             <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
               <div className="border-b">
                 <nav className="flex">
@@ -340,7 +338,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Tab Content */}
             {activeTab === 'overview' && (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                 {data.map((creative, index) => (
@@ -355,7 +352,6 @@ export default function Home() {
                       </span>
                     </div>
                     
-                    {/* Performance Metrics */}
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <div className="bg-gray-50 rounded-lg p-3">
                         <p className="text-xs text-gray-500">ROAS</p>
@@ -367,7 +363,6 @@ export default function Home() {
                       </div>
                     </div>
                     
-                    {/* Score Bars */}
                     <div className="space-y-3">
                       <div>
                         <div className="flex justify-between text-sm mb-1">
@@ -522,7 +517,7 @@ export default function Home() {
                     <div className="bg-white rounded-lg p-4">
                       <p className="font-medium text-gray-900 mb-2">📈 Scaling Opportunities</p>
                       <p className="text-sm text-gray-600">
-                        {data.filter(c => parseFloat(c['ROAS']) >= 3).length} creatives with ROAS >3x. 
+                        {data.filter(c => parseFloat(c['ROAS']) >= 3).length} creatives with ROAS above 3x. 
                         Consider increasing budget allocation.
                       </p>
                     </div>
@@ -545,7 +540,6 @@ export default function Home() {
               </div>
             )}
 
-            {/* Export Button */}
             <div className="mt-8 flex justify-center">
               <button
                 onClick={() => {
