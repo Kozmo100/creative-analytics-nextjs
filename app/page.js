@@ -1,12 +1,47 @@
 'use client'
 
 import { useState } from 'react';
-import FileUpload from './components/FileUpload';
-import MetricCard from './components/MetricCard';
-import CreativeScore from './components/CreativeScore';
-import { processCreativeData } from './lib/calculations';
-import { BarChart, TrendingUp, DollarSign, Award } from 'lucide-react';
+import { BarChart, TrendingUp, DollarSign, Award, Upload } from 'lucide-react';
 import Papa from 'papaparse';
+
+// Calculation functions
+function calculateScore(value, goodThreshold, mediumThreshold) {
+  const numValue = parseFloat(value) || 0;
+  if (numValue >= goodThreshold) {
+    return Math.min(70 + (numValue - goodThreshold) * 2, 100);
+  } else if (numValue >= mediumThreshold) {
+    return 50 + ((numValue - mediumThreshold) / (goodThreshold - mediumThreshold)) * 19;
+  }
+  return Math.max(0, (numValue / mediumThreshold) * 49);
+}
+
+function processCreativeData(data) {
+  return data.map(row => {
+    const impressions = parseFloat(row.Impressions) || 0;
+    const threeSecViews = parseFloat(row['Three-second video views']) || 0;
+    const thruPlay = parseFloat(row['ThruPlay Actions']) || 0;
+    const clicks = parseFloat(row['Link Clicks']) || 0;
+    
+    const hookRate = impressions ? ((threeSecViews / impressions) * 100).toFixed(2) : 0;
+    const holdRate = threeSecViews ? ((thruPlay / threeSecViews) * 100).toFixed(2) : 0;
+    const ctr = impressions ? ((clicks / impressions) * 100).toFixed(2) : 0;
+    
+    const hookScore = Math.round(calculateScore(hookRate, 8, 4));
+    const watchScore = Math.round(calculateScore(holdRate, 35, 20));
+    const clickScore = Math.round(calculateScore(ctr * 10, 70, 40));
+    
+    return {
+      ...row,
+      'Hook Rate (%)': hookRate,
+      'Hold Rate (%)': holdRate,
+      'CTR (%)': ctr,
+      'Hook Score': hookScore,
+      'Watch Score': watchScore,
+      'Click Score': clickScore,
+      'Overall Score': Math.round((hookScore + watchScore + clickScore) / 3)
+    };
+  });
+}
 
 export default function Home() {
   const [data, setData] = useState(null);
@@ -15,7 +50,6 @@ export default function Home() {
 
   const handleFileUpload = (file) => {
     setLoading(true);
-    
     const reader = new FileReader();
     reader.onload = (e) => {
       const csv = e.target.result;
@@ -38,7 +72,6 @@ export default function Home() {
         'Three-second video views': 4000,
         'ThruPlay Actions': 1600,
         'Link Clicks': 320,
-        'Fifteen-second video views': 807,
         'Cost (EUR)': 250,
         'ROAS': 3.2
       },
@@ -48,7 +81,6 @@ export default function Home() {
         'Three-second video views': 3555,
         'ThruPlay Actions': 1600,
         'Link Clicks': 355,
-        'Fifteen-second video views': 947,
         'Cost (EUR)': 225,
         'ROAS': 4.1
       },
@@ -58,13 +90,11 @@ export default function Home() {
         'Three-second video views': 3002,
         'ThruPlay Actions': 1020,
         'Link Clicks': 204,
-        'Fifteen-second video views': 500,
         'Cost (EUR)': 190,
         'ROAS': 2.1
       }
     ];
-    const processedData = processCreativeData(sampleData);
-    setData(processedData);
+    setData(processCreativeData(sampleData));
   };
 
   const getAverageMetric = (metric) => {
@@ -99,7 +129,19 @@ export default function Home() {
               <p className="text-lg text-gray-600">Transform your ad performance data into actionable insights</p>
             </div>
             
-            <FileUpload onFileUpload={handleFileUpload} />
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <p className="text-lg font-medium mb-2">Drop your CSV file here</p>
+              <label className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 cursor-pointer inline-block">
+                Browse Files
+                <input 
+                  type="file" 
+                  accept=".csv" 
+                  onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0])} 
+                  className="hidden" 
+                />
+              </label>
+            </div>
             
             {loading && (
               <div className="text-center mt-8">
@@ -116,10 +158,45 @@ export default function Home() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <MetricCard title="Total Creatives" value={data.length} icon={<BarChart className="h-8 w-8" />} />
-              <MetricCard title="Avg Hook Rate" value={`${getAverageMetric('Hook Rate (%)')}%`} icon={<TrendingUp className="h-8 w-8" />} />
-              <MetricCard title="Avg Hold Rate" value={`${getAverageMetric('Hold Rate (%)')}%`} icon={<Award className="h-8 w-8" />} />
-              <MetricCard title="Avg ROAS" value={`${getAverageMetric('ROAS')}x`} icon={<DollarSign className="h-8 w-8" />} />
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Creatives</p>
+                    <p className="text-2xl font-bold mt-1">{data.length}</p>
+                  </div>
+                  <BarChart className="h-8 w-8 text-gray-400" />
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Avg Hook Rate</p>
+                    <p className="text-2xl font-bold mt-1">{getAverageMetric('Hook Rate (%)')}%</p>
+                  </div>
+                  <TrendingUp className="h-8 w-8 text-gray-400" />
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Avg Hold Rate</p>
+                    <p className="text-2xl font-bold mt-1">{getAverageMetric('Hold Rate (%)')}%</p>
+                  </div>
+                  <Award className="h-8 w-8 text-gray-400" />
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Avg ROAS</p>
+                    <p className="text-2xl font-bold mt-1">{getAverageMetric('ROAS')}x</p>
+                  </div>
+                  <DollarSign className="h-8 w-8 text-gray-400" />
+                </div>
+              </div>
             </div>
 
             <div className="bg-white rounded-lg shadow-md mb-6">
@@ -143,7 +220,32 @@ export default function Home() {
             {activeTab === 'scores' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {data.map((creative, index) => (
-                  <CreativeScore key={index} creative={creative} />
+                  <div key={index} className="bg-white rounded-lg shadow-md p-6">
+                    <h3 className="font-bold text-lg mb-2">{creative['Ad name']}</h3>
+                    
+                    <div className="space-y-2 mb-4">
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Hook Score</span>
+                          <span>{creative['Hook Score']}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full ${
+                              creative['Hook Score'] >= 70 ? 'bg-green-500' : 
+                              creative['Hook Score'] >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`}
+                            style={{ width: `${creative['Hook Score']}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-center p-3 bg-gray-100 rounded">
+                      <div className="text-2xl font-bold">{creative['Overall Score']}</div>
+                      <div className="text-xs text-gray-600">Overall Score</div>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -156,7 +258,7 @@ export default function Home() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Creative</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hook Rate</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hold Rate</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Overall Score</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Score</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
