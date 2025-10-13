@@ -1,256 +1,316 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { MetricCard, MetricCardGroup } from './components/metrics/MetricCard';
-import { CSVUpload } from './components/CSVUpload';
-import { Button } from './components/ui/Button';
-import { StatusBadge } from './components/ui/StatusBadge';
+import { useState } from 'react';
 import { 
-  calculateAllMetrics, 
-  formatCurrency, 
-  formatPercentage, 
-  formatROAS,
-  formatLargeNumber,
-  getPerformanceScore,
-  getPerformanceColor,
-  getPerformanceLabel,
-  type CreativeData, 
-  type CalculatedMetrics 
-} from './lib/metrics';
-import { 
+  BarChart, 
   TrendingUp, 
-  TrendingDown, 
-  BarChart3, 
-  FileText,
-  Filter
+  DollarSign, 
+  Award, 
+  Target, 
+  Eye, 
+  Percent 
 } from 'lucide-react';
+import Papa from 'papaparse';
+import { 
+  processCreativeData, 
+  getAverageMetric, 
+  sampleData,
+  type ProcessedCreative 
+} from './lib/metrics';
+import { CSVUpload } from './components/CSVUpload';
+import { CreativeCard } from './components/CreativeCard';
+import { KPICard } from './components/KPICard';
+import { PerformanceTable } from './components/PerformanceTable';
 
-interface ProcessedCreative extends CreativeData, CalculatedMetrics {
-  performanceScore: number;
-}
-
-export default function Dashboard() {
-  const [creatives, setCreatives] = useState<ProcessedCreative[]>([]);
+export default function Home() {
+  const [data, setData] = useState<ProcessedCreative[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [dateRange, setDateRange] = useState('Last 30 days');
-  
-  // Calculate aggregate metrics
-  const aggregateMetrics = creatives.length > 0 ? {
-    totalSpend: creatives.reduce((sum, c) => sum + c['Amount Spent'], 0),
-    totalRevenue: creatives.reduce((sum, c) => sum + c['Purchase Value'], 0),
-    avgROAS: creatives.reduce((sum, c) => sum + c.roas, 0) / creatives.length,
-    avgHookRate: creatives.reduce((sum, c) => sum + c.hookRate, 0) / creatives.length,
-    avgHoldRate: creatives.reduce((sum, c) => sum + c.holdRate, 0) / creatives.length,
-    avgCPA: creatives.reduce((sum, c) => sum + c.cpa, 0) / creatives.length,
-  } : null;
+  const [activeTab, setActiveTab] = useState('overview');
+  const [statusFilter, setStatusFilter] = useState('all');
 
-  const handleDataLoaded = (data: any[]) => {
-    const processedData = data.map(row => {
-      const metrics = calculateAllMetrics(row);
-      const performanceScore = getPerformanceScore(metrics);
-      return {
-        ...row,
-        ...metrics,
-        performanceScore
-      };
-    });
-    
-    // Sort by performance score
-    processedData.sort((a, b) => b.performanceScore - a.performanceScore);
-    setCreatives(processedData);
+  const handleDataLoaded = (processedData: ProcessedCreative[]) => {
+    setData(processedData);
   };
 
-  // Get top performers
-  const topPerformers = creatives.slice(0, 5);
+  const loadSampleData = () => {
+    setData(processCreativeData(sampleData));
+  };
+
+  // Filter data by status
+  const filteredData = data ? (
+    statusFilter === 'all' 
+      ? data 
+      : data.filter(item => item['Ad Status'] === statusFilter)
+  ) : null;
+
+  const exportCSV = () => {
+    if (!filteredData) return;
+    const csv = Papa.unparse(filteredData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `creative_analytics_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
-    <div className="min-h-screen bg-bg-secondary">
-      {/* Header */}
-      <header className="bg-white border-b border-border-gray">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-gradient rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">K</span>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <Target className="h-6 w-6 text-white" />
               </div>
-              <h1 className="text-2xl font-semibold text-text-primary">KOOSMIC AI</h1>
+              <h1 className="text-2xl font-bold">Creative Analytics Platform</h1>
             </div>
-            
-            <div className="flex items-center gap-3">
-              <select 
-                className="px-4 py-2 border border-border-gray rounded-md text-sm"
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
+            {data && (
+              <button 
+                onClick={() => setData(null)} 
+                className="text-sm text-gray-600 hover:text-gray-900"
               >
-                <option>Last 30 days</option>
-                <option>Last 14 days</option>
-                <option>Last 7 days</option>
-                <option>Today</option>
-              </select>
-              
-              <Button variant="secondary" icon={Filter}>
-                Filter
-              </Button>
-              
-              <Button variant="primary" icon={FileText}>
-                Export Report
-              </Button>
-            </div>
+                Upload New File
+              </button>
+            )}
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {creatives.length === 0 ? (
-          // Upload State
-          <div className="space-y-8">
-            <div className="text-center">
-              <h2 className="text-3xl font-semibold text-text-primary mb-2">
-                Creative Analytics Dashboard
-              </h2>
-              <p className="text-text-secondary">
-                Upload your CSV to analyze creative performance
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        {!data ? (
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold mb-4">Upload Your Creative Data</h2>
+              <p className="text-lg text-gray-600">
+                Transform your Meta, Google, or TikTok ad data into actionable insights
               </p>
             </div>
             
-            <CSVUpload onDataLoaded={handleDataLoaded} />
+            <CSVUpload 
+              onDataLoaded={handleDataLoaded} 
+              loading={loading} 
+              setLoading={setLoading} 
+            />
             
-            <div className="bg-info-blue/10 rounded-lg p-4">
-              <h3 className="font-medium text-info-blue mb-2">Expected CSV Format:</h3>
-              <p className="text-sm text-text-secondary">
-                Creative Name, Ad Set, Amount Spent, Impressions, Link Clicks, Purchases, 
-                Purchase Value, 3-Second Video Views, ThruPlays, etc.
-              </p>
+            <div className="text-center mt-8">
+              <button 
+                onClick={loadSampleData} 
+                className="text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Or try with sample data →
+              </button>
+            </div>
+            
+            <div className="mt-12 bg-blue-50 rounded-lg p-6">
+              <h3 className="font-semibold mb-2">Required CSV Columns:</h3>
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Dimensions:</p>
+                  <ul className="text-sm text-gray-600 space-y-1">
+                    <li>• Date</li>
+                    <li>• Ad Set Name</li>
+                    <li>• Ad Name</li>
+                    <li>• Ad Status</li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Metrics:</p>
+                  <ul className="text-sm text-gray-600 space-y-1">
+                    <li>• Cost (EUR)</li>
+                    <li>• Purchase value</li>
+                    <li>• Website purchases</li>
+                    <li>• Impressions</li>
+                    <li>• Three-second video views</li>
+                    <li>• Video Plays 50%</li>
+                    <li>• Link Clicks</li>
+                    <li>• ThruPlay Actions</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         ) : (
-          // Dashboard View
-          <div className="space-y-8">
-            {/* Page Title */}
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-3xl font-semibold text-text-primary">
-                  Performance Overview
-                </h2>
-                <p className="text-text-secondary mt-1">
-                  {creatives.length} creatives analyzed • {dateRange}
-                </p>
+          <>
+            {/* Status Filter */}
+            {filteredData && (
+              <div className="mb-6">
+                <div className="bg-white rounded-lg shadow-sm p-4">
+                  <div className="flex items-center space-x-4">
+                    <span className="text-sm font-medium text-gray-700">Filter by Status:</span>
+                    <div className="flex space-x-2">
+                      {['all', 'ACTIVE', 'PAUSED', 'ADSET_PAUSED'].map(status => (
+                        <button
+                          key={status}
+                          onClick={() => setStatusFilter(status)}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            statusFilter === status
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {status === 'all' ? 'All' : status.replace('_', ' ')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
-              
-              <CSVUpload onDataLoaded={handleDataLoaded} />
-            </div>
-
-            {/* Key Metrics */}
-            {aggregateMetrics && (
-              <MetricCardGroup columns={4}>
-                <MetricCard
-                  label="Average ROAS"
-                  value={formatROAS(aggregateMetrics.avgROAS)}
-                  change={12.5}
-                  isHighlighted={true}
-                />
-                
-                <MetricCard
-                  label="Average CPA"
-                  value={formatCurrency(aggregateMetrics.avgCPA)}
-                  change={-8.3}
-                  trend="down"
-                />
-                
-                <MetricCard
-                  label="Avg Hook Rate"
-                  value={formatPercentage(aggregateMetrics.avgHookRate)}
-                  change={5.2}
-                />
-                
-                <MetricCard
-                  label="Avg Hold Rate"
-                  value={formatPercentage(aggregateMetrics.avgHoldRate)}
-                  change={3.7}
-                />
-              </MetricCardGroup>
             )}
 
-            {/* Top Performers Table */}
-            <div className="bg-white rounded-lg shadow-sm border border-border-gray">
-              <div className="px-6 py-4 border-b border-border-gray">
-                <h3 className="text-lg font-semibold text-text-primary">
-                  Top Performing Creatives
-                </h3>
-              </div>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <KPICard
+                label="Avg ROAS"
+                value={`${getAverageMetric(filteredData || [], 'ROAS')}x`}
+                icon={DollarSign}
+                iconColor="text-green-500"
+                subtitle="Target: above 3.0x"
+                subtitleColor="text-green-600"
+              />
               
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-bg-secondary">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
-                        Creative
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
-                        Hook Rate
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
-                        Hold Rate
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
-                        ROAS
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
-                        Score
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-border-gray">
-                    {topPerformers.map((creative, idx) => (
-                      <tr key={idx} className="hover:bg-bg-secondary transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-text-primary">
-                              {creative['Creative Name']}
-                            </div>
-                            <div className="text-xs text-text-tertiary">
-                              {creative['Ad Set']}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <StatusBadge status={creative.Status || 'Active'} />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <span className={creative.hookRate > 20 ? 'text-success-green' : 'text-text-primary'}>
-                            {formatPercentage(creative.hookRate)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <span className={creative.holdRate > 30 ? 'text-success-green' : 'text-text-primary'}>
-                            {formatPercentage(creative.holdRate)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <span className={creative.roas > 2 ? 'text-success-green font-medium' : 'text-text-primary'}>
-                            {formatROAS(creative.roas)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <span className={`font-medium ${getPerformanceColor(creative.performanceScore)}`}>
-                              {creative.performanceScore}
-                            </span>
-                            <span className="text-xs text-text-tertiary">
-                              {getPerformanceLabel(creative.performanceScore)}
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <KPICard
+                label="Avg CPA"
+                value={`€${getAverageMetric(filteredData || [], 'CPA (€)')}`}
+                icon={Target}
+                iconColor="text-blue-500"
+                subtitle="Lower is better"
+              />
+              
+              <KPICard
+                label="Avg Hook Rate"
+                value={`${getAverageMetric(filteredData || [], 'Hook Rate (%)')}%`}
+                icon={Eye}
+                iconColor="text-purple-500"
+                subtitle="3-sec views / impressions"
+                subtitleColor="text-purple-600"
+              />
+              
+              <KPICard
+                label="Avg CTR"
+                value={`${getAverageMetric(filteredData || [], 'CTR (%)')}%`}
+                icon={Percent}
+                iconColor="text-orange-500"
+                subtitle="Click-through rate"
+                subtitleColor="text-orange-600"
+              />
+            </div>
+
+            {/* Tabs */}
+            <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
+              <div className="border-b">
+                <nav className="flex">
+                  {['overview', 'performance', 'insights'].map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`flex-1 py-4 px-6 text-sm font-medium capitalize transition-colors ${
+                        activeTab === tab 
+                          ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </nav>
               </div>
             </div>
-          </div>
+
+            {/* Tab Content */}
+            {activeTab === 'overview' && filteredData && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredData.map((creative, index) => (
+                  <CreativeCard key={index} creative={creative} />
+                ))}
+              </div>
+            )}
+
+            {activeTab === 'performance' && filteredData && (
+              <PerformanceTable data={filteredData} />
+            )}
+
+            {activeTab === 'insights' && filteredData && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold mb-4 text-green-600">✅ Top Performers</h3>
+                  <div className="space-y-3">
+                    {filteredData
+                      .sort((a, b) => parseFloat(b['ROAS']) - parseFloat(a['ROAS']))
+                      .slice(0, 3)
+                      .map((creative, index) => (
+                        <div key={index} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-900">{creative['Ad Name']}</p>
+                            <p className="text-xs text-gray-600">{creative['Ad Set Name']}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-green-600">ROAS: {creative['ROAS']}x</p>
+                            <p className="text-xs text-gray-600">CPA: €{creative['CPA (€)']}</p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold mb-4 text-red-600">⚠️ Need Optimization</h3>
+                  <div className="space-y-3">
+                    {filteredData
+                      .filter(c => parseFloat(c['ROAS']) < 1.5 && parseFloat(c['ROAS']) > 0)
+                      .slice(0, 3)
+                      .map((creative, index) => (
+                        <div key={index} className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-900">{creative['Ad Name']}</p>
+                            <p className="text-xs text-gray-600">{creative['Ad Set Name']}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-red-600">ROAS: {creative['ROAS']}x</p>
+                            <p className="text-xs text-gray-600">Hook: {creative['Hook Rate (%)']}%</p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+                
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 lg:col-span-2">
+                  <h3 className="text-lg font-semibold mb-4">📊 Portfolio Analysis</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white rounded-lg p-4">
+                      <p className="font-medium text-gray-900 mb-2">📈 Average Performance</p>
+                      <ul className="text-sm text-gray-600 space-y-1">
+                        <li>• AOV: €{getAverageMetric(filteredData, 'AOV (€)')}</li>
+                        <li>• Hold Rate: {getAverageMetric(filteredData, 'Hold Rate (%)')}%</li>
+                        <li>• Engaged View Rate (50%): {getAverageMetric(filteredData, 'Engaged View Rate 50% (%)')}%</li>
+                      </ul>
+                    </div>
+                    <div className="bg-white rounded-lg p-4">
+                      <p className="font-medium text-gray-900 mb-2">🎯 Recommendations</p>
+                      <ul className="text-sm text-gray-600 space-y-1">
+                        <li>• {filteredData.filter(c => parseFloat(c['ROAS']) >= 3).length} ads ready to scale</li>
+                        <li>• {filteredData.filter(c => parseFloat(c['Hook Rate (%)']) < 20).length} ads need hook optimization</li>
+                        <li>• {filteredData.filter(c => c['Ad Status'] === 'PAUSED').length} paused ads to review</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Export Button */}
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={exportCSV}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
+              >
+                Export Enhanced Data CSV
+              </button>
+            </div>
+          </>
         )}
       </main>
     </div>
