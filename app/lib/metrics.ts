@@ -1,169 +1,177 @@
-// Aligning with your existing CSV structure from Streamlit implementation
+// Type definitions matching your exact CSV structure
 export interface CreativeData {
-  // Identifiers
-  'Creative Name': string;
-  'Ad Set': string;
-  Date?: string;
-  Status?: 'Active' | 'Paused' | 'Review' | 'Ad Fatigue';
-  
-  // Performance Metrics (from CSV)
-  'Amount Spent': number;
+  'Date': string;
+  'Ad Set Name': string;
+  'Ad Name': string;
+  'Ad Status': string;
+  'Cost (EUR)': number;
+  'Purchase value': number;
+  'Website purchases': number;
   'Impressions': number;
   'Link Clicks': number;
-  'Purchases': number;
-  'Purchase Value': number;
-  '3-Second Video Views': number;
-  'Video Views at 25%': number;
-  'Video Views at 50%': number;
-  'Video Views at 75%': number;
-  'Video Views at 95%': number;
-  'ThruPlays': number;
+  'Three-second video views': number;
+  'Video Watches 75%': number;
+  'Video Plays 50%': number;
+  'ThruPlay Actions': number;
 }
 
-// Calculated metrics matching your Streamlit dashboard
+// Calculated metrics matching your implementation
 export interface CalculatedMetrics {
-  hookRate: number;        // (3-sec views / impressions) × 100
-  holdRate: number;         // (ThruPlays / 3-sec views) × 100
-  ctr: number;             // (Link clicks / impressions) × 100
-  cpa: number;             // Amount spent / Purchases
-  roas: number;            // Purchase value / Amount spent
-  aov: number;             // Purchase value / Purchases
-  retention3s: number;     // 3-sec views / impressions × 100
-  retention15s: number;    // ThruPlays / impressions × 100
-  dropOff: number;         // (3-sec views - ThruPlays) / 3-sec views × 100
-  conversionRate: number;  // Purchases / Link clicks × 100
+  'ROAS': string;
+  'CPA (€)': string;
+  'Hook Rate (%)': string;
+  'Hold Rate (%)': string;
+  'CTR (%)': string;
+  'Engaged View Rate 50% (%)': string;
+  'AOV (€)': string;
+  'ROAS Score': number;
+  'Hook Score': number;
+  'Hold Score': number;
+  'CTR Score': number;
+  'Overall Score': number;
 }
 
-// Hook Rate: First 3 seconds retention
-export const calculateHookRate = (threeSecViews: number, impressions: number): number => {
-  if (impressions <= 0) return 0;
-  return Number(((threeSecViews / impressions) * 100).toFixed(2));
-};
+export interface ProcessedCreative extends CreativeData, CalculatedMetrics {}
 
-// Hold Rate: Full video retention
-export const calculateHoldRate = (thruPlays: number, threeSecViews: number): number => {
-  if (threeSecViews <= 0) return 0;
-  return Number(((thruPlays / threeSecViews) * 100).toFixed(2));
-};
+// Calculate score based on thresholds (matching your exact logic)
+export function calculateScore(value: string | number, goodThreshold: number, mediumThreshold: number): number {
+  const numValue = parseFloat(value.toString()) || 0;
+  if (numValue >= goodThreshold) {
+    return Math.min(70 + (numValue - goodThreshold), 100);
+  } else if (numValue >= mediumThreshold) {
+    return 50 + ((numValue - mediumThreshold) / (goodThreshold - mediumThreshold)) * 20;
+  }
+  return Math.max(0, (numValue / mediumThreshold) * 50);
+}
 
-// CTR
-export const calculateCTR = (linkClicks: number, impressions: number): number => {
-  if (impressions <= 0) return 0;
-  return Number(((linkClicks / impressions) * 100).toFixed(2));
-};
+// Process creative data with your exact formulas
+export function processCreativeData(data: any[]): ProcessedCreative[] {
+  return data.map(row => {
+    // Parse all non-calculated metrics
+    const cost = parseFloat(row['Cost (EUR)']) || 0;
+    const purchaseValue = parseFloat(row['Purchase value']) || 0;
+    const websitePurchases = parseFloat(row['Website purchases']) || 0;
+    const impressions = parseFloat(row['Impressions']) || 0;
+    const linkClicks = parseFloat(row['Link Clicks']) || 0;
+    const threeSecViews = parseFloat(row['Three-second video views']) || 0;
+    const watches75 = parseFloat(row['Video Watches 75%']) || 0;
+    const plays50 = parseFloat(row['Video Plays 50%']) || 0;
+    const thruPlayActions = parseFloat(row['ThruPlay Actions']) || 0;
+    
+    // Calculate all metrics according to your specifications
+    const roas = cost > 0 ? (purchaseValue / cost).toFixed(2) : '0';
+    const cpa = websitePurchases > 0 ? (cost / websitePurchases).toFixed(2) : '0';
+    const hookRate = impressions > 0 ? ((threeSecViews / impressions) * 100).toFixed(2) : '0';
+    const holdRate = threeSecViews > 0 ? ((thruPlayActions / threeSecViews) * 100).toFixed(2) : '0';
+    const ctr = impressions > 0 ? ((linkClicks / impressions) * 100).toFixed(2) : '0';
+    const engagedViewRate50 = threeSecViews > 0 ? ((plays50 / threeSecViews) * 100).toFixed(2) : '0';
+    const aov = websitePurchases > 0 ? (purchaseValue / websitePurchases).toFixed(2) : '0';
+    
+    // Calculate performance scores (0-100)
+    const roasScore = calculateScore(parseFloat(roas) * 20, 60, 30); // ROAS Good >3, Medium >1.5
+    const hookScore = calculateScore(parseFloat(hookRate), 40, 20); // Hook Good >40%, Medium >20%
+    const holdScore = calculateScore(parseFloat(holdRate), 30, 15); // Hold Good >30%, Medium >15%
+    const ctrScore = calculateScore(parseFloat(ctr) * 10, 10, 5); // CTR Good >1%, Medium >0.5%
+    
+    return {
+      ...row,
+      'ROAS': roas,
+      'CPA (€)': cpa,
+      'Hook Rate (%)': hookRate,
+      'Hold Rate (%)': holdRate,
+      'CTR (%)': ctr,
+      'Engaged View Rate 50% (%)': engagedViewRate50,
+      'AOV (€)': aov,
+      'ROAS Score': Math.round(roasScore),
+      'Hook Score': Math.round(hookScore),
+      'Hold Score': Math.round(holdScore),
+      'CTR Score': Math.round(ctrScore),
+      'Overall Score': Math.round((roasScore + hookScore + holdScore + ctrScore) / 4)
+    };
+  });
+}
 
-// CPA
-export const calculateCPA = (amountSpent: number, purchases: number): number => {
-  if (purchases <= 0) return 0;
-  return Number((amountSpent / purchases).toFixed(2));
-};
+// Get average metric
+export function getAverageMetric(data: ProcessedCreative[], metric: keyof CalculatedMetrics): string {
+  if (!data || data.length === 0) return '0';
+  const sum = data.reduce((acc, item) => acc + parseFloat(item[metric].toString() || '0'), 0);
+  return (sum / data.length).toFixed(2);
+}
 
-// ROAS
-export const calculateROAS = (purchaseValue: number, amountSpent: number): number => {
-  if (amountSpent <= 0) return 0;
-  return Number((purchaseValue / amountSpent).toFixed(2));
-};
+// Get score color classes
+export function getScoreColor(score: number): string {
+  if (score >= 70) return 'text-green-600 bg-green-100';
+  if (score >= 50) return 'text-yellow-600 bg-yellow-100';
+  return 'text-red-600 bg-red-100';
+}
 
-// AOV
-export const calculateAOV = (purchaseValue: number, purchases: number): number => {
-  if (purchases <= 0) return 0;
-  return Number((purchaseValue / purchases).toFixed(2));
-};
+// Get status color classes
+export function getStatusColor(status: string): string {
+  if (status === 'ACTIVE') return 'text-green-600 bg-green-100';
+  if (status === 'PAUSED') return 'text-yellow-600 bg-yellow-100';
+  return 'text-gray-600 bg-gray-100';
+}
 
-// 3s Retention (same as Hook Rate)
-export const calculate3sRetention = (threeSecViews: number, impressions: number): number => {
-  return calculateHookRate(threeSecViews, impressions);
-};
-
-// 15s Retention (ThruPlay rate)
-export const calculate15sRetention = (thruPlays: number, impressions: number): number => {
-  if (impressions <= 0) return 0;
-  return Number(((thruPlays / impressions) * 100).toFixed(2));
-};
-
-// Drop-off Rate
-export const calculateDropOff = (threeSecViews: number, thruPlays: number): number => {
-  if (threeSecViews <= 0) return 0;
-  const dropOff = ((threeSecViews - thruPlays) / threeSecViews) * 100;
-  return Number(dropOff.toFixed(2));
-};
-
-// Conversion Rate
-export const calculateConversionRate = (purchases: number, linkClicks: number): number => {
-  if (linkClicks <= 0) return 0;
-  return Number(((purchases / linkClicks) * 100).toFixed(2));
-};
-
-// Calculate all metrics for a creative
-export const calculateAllMetrics = (creative: CreativeData): CalculatedMetrics => {
-  return {
-    hookRate: calculateHookRate(creative['3-Second Video Views'], creative['Impressions']),
-    holdRate: calculateHoldRate(creative['ThruPlays'], creative['3-Second Video Views']),
-    ctr: calculateCTR(creative['Link Clicks'], creative['Impressions']),
-    cpa: calculateCPA(creative['Amount Spent'], creative['Purchases']),
-    roas: calculateROAS(creative['Purchase Value'], creative['Amount Spent']),
-    aov: calculateAOV(creative['Purchase Value'], creative['Purchases']),
-    retention3s: calculate3sRetention(creative['3-Second Video Views'], creative['Impressions']),
-    retention15s: calculate15sRetention(creative['ThruPlays'], creative['Impressions']),
-    dropOff: calculateDropOff(creative['3-Second Video Views'], creative['ThruPlays']),
-    conversionRate: calculateConversionRate(creative['Purchases'], creative['Link Clicks']),
-  };
-};
-
-// Format utilities matching your Streamlit display
-export const formatCurrency = (value: number): string => {
-  return `€${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
-
-export const formatPercentage = (value: number): string => {
-  return `${value.toFixed(1)}%`;
-};
-
-export const formatROAS = (value: number): string => {
-  return `${value.toFixed(2)}x`;
-};
-
-export const formatLargeNumber = (value: number): string => {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-  return value.toString();
-};
-
-// Performance scoring (matching your Streamlit logic)
-export const getPerformanceScore = (metrics: CalculatedMetrics): number => {
-  let score = 0;
-  
-  // Hook Rate scoring
-  if (metrics.hookRate > 30) score += 25;
-  else if (metrics.hookRate > 20) score += 15;
-  else if (metrics.hookRate > 10) score += 5;
-  
-  // Hold Rate scoring
-  if (metrics.holdRate > 50) score += 25;
-  else if (metrics.holdRate > 30) score += 15;
-  else if (metrics.holdRate > 15) score += 5;
-  
-  // CTR scoring
-  if (metrics.ctr > 2) score += 25;
-  else if (metrics.ctr > 1) score += 15;
-  else if (metrics.ctr > 0.5) score += 5;
-  
-  // ROAS scoring
-  if (metrics.roas > 3) score += 25;
-  else if (metrics.roas > 2) score += 15;
-  else if (metrics.roas > 1) score += 5;
-  
-  return score;
-};
-
-export const getPerformanceColor = (score: number): string => {
-  if (score >= 70) return 'text-success-green';
-  if (score >= 40) return 'text-warning-orange';
-  return 'text-error-red';
-};
-
-export const getPerformanceLabel = (score: number): string => {
-  if (score >= 70) return 'High Performer';
-  if (score >= 40) return 'Average';
-  return 'Needs Improvement';
-};
+// Sample data for testing
+export const sampleData = [
+  {
+    'Date': '2025-07-01',
+    'Ad Set Name': 'Warm audience',
+    'Ad Name': '10% kod Ad',
+    'Ad Status': 'PAUSED',
+    'Cost (EUR)': 30.39,
+    'Purchase value': 1128.39,
+    'Three-second video views': 0,
+    'Video Watches 75%': 0,
+    'Video Plays 50%': 0,
+    'Link Clicks': 27,
+    'Website purchases': 7,
+    'Impressions': 12722,
+    'ThruPlay Actions': 0
+  },
+  {
+    'Date': '2025-07-01',
+    'Ad Set Name': 'Warm audience',
+    'Ad Name': '10% kod Ad - Q3',
+    'Ad Status': 'PAUSED',
+    'Cost (EUR)': 37.99,
+    'Purchase value': 3522.47,
+    'Three-second video views': 0,
+    'Video Watches 75%': 0,
+    'Video Plays 50%': 0,
+    'Link Clicks': 55,
+    'Website purchases': 8,
+    'Impressions': 17198,
+    'ThruPlay Actions': 0
+  },
+  {
+    'Date': '2025-07-01',
+    'Ad Set Name': '12-7-2025-Pruzky',
+    'Ad Name': 'Miro 1.1',
+    'Ad Status': 'ADSET_PAUSED',
+    'Cost (EUR)': 208.7,
+    'Purchase value': 10634.31,
+    'Three-second video views': 20798,
+    'Video Watches 75%': 3000,
+    'Video Plays 50%': 4928,
+    'Link Clicks': 388,
+    'Website purchases': 30,
+    'Impressions': 77863,
+    'ThruPlay Actions': 5656
+  },
+  {
+    'Date': '2025-07-01',
+    'Ad Set Name': '10-7-2025-Pruzky',
+    'Ad Name': 'Static 6.1',
+    'Ad Status': 'ADSET_PAUSED',
+    'Cost (EUR)': 106.37,
+    'Purchase value': 9470.86,
+    'Three-second video views': 0,
+    'Video Watches 75%': 0,
+    'Video Plays 50%': 0,
+    'Link Clicks': 275,
+    'Website purchases': 23,
+    'Impressions': 37888,
+    'ThruPlay Actions': 0
+  }
+];
